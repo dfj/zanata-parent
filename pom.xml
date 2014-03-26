@@ -250,8 +250,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <encoding>UTF-8</encoding>
-          <source>1.6</source>
-          <target>1.6</target>
+          <source>1.8</source>
+          <target>1.8</target>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
           <optimize>true</optimize>
@@ -280,6 +280,25 @@
               <goal>analyze-only</goal>
             </goals>
           </execution>
+          <execution>
+            <id>copy-retrolambda</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>net.orfjackal.retrolambda</groupId>
+                  <artifactId>retrolambda</artifactId>
+                  <version>1.1.3</version>
+                  <overWrite>true</overWrite>
+                  <outputDirectory>${project.build.directory}</outputDirectory>
+                  <destFileName>retrolambda.jar</destFileName>
+                </artifactItem>
+              </artifactItems>
+            </configuration>
+          </execution>
         </executions>
         <configuration>
           <failOnWarning>true</failOnWarning>
@@ -290,6 +309,57 @@
             <usedDependency>org.slf4j:jcl-over-slf4j</usedDependency>
           </usedDependencies>
         </configuration>
+      </plugin>
+
+      <!-- NB: This needs to be after dependency plugin (to copy retrolambda.jar) -->
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>retrolambda-classes</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <property name="compile_classpath" refid="maven.compile.classpath" />
+                <exec executable="${java.home}/bin/java"
+                  failonerror="true">
+                  <arg value="-Dretrolambda.bytecodeVersion=50" />
+                  <arg
+                    value="-Dretrolambda.inputDir=${project.build.outputDirectory}" />
+                  <arg value="-Dretrolambda.classpath=${compile_classpath}" />
+                  <arg value="-javaagent:${project.build.directory}/retrolambda.jar" />
+                  <arg value="-jar" />
+                  <arg value="${project.build.directory}/retrolambda.jar" />
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>retrolambda-test-classes</id>
+            <phase>process-test-classes</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <property name="test_classpath" refid="maven.test.classpath" />
+                <exec executable="${java.home}/bin/java"
+                  failonerror="true">
+                  <arg value="-Dretrolambda.bytecodeVersion=50" />
+                  <arg
+                    value="-Dretrolambda.inputDir=${project.build.testOutputDirectory}" />
+                  <arg value="-Dretrolambda.classpath=${test_classpath}" />
+                  <arg value="-javaagent:${project.build.directory}/retrolambda.jar" />
+                  <arg value="-jar" />
+                  <arg value="${project.build.directory}/retrolambda.jar" />
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
@@ -434,17 +504,6 @@ package.
             </configuration>
           </execution>
         </executions>
-      </plugin>
-
-      <!-- useful for debugging Maven properties: eg mvn initialize antrun:run -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-antrun-plugin</artifactId>
-        <configuration>
-          <target>
-            <echo>[describe] ${gitDescribe}</echo>
-          </target>
-        </configuration>
       </plugin>
 
       <plugin>
@@ -647,6 +706,18 @@ package.
 
   <profiles>
     <profile>
+        <id>packaging-pom</id>
+        <activation>
+            <file>
+                <missing>src</missing>
+            </file>
+        </activation>
+        <properties>
+          <maven.antrun.skip>true</maven.antrun.skip>
+        </properties>
+    </profile>
+    <profile>
+      <id>jdk18-findbugs-skip</id>
       <activation>
         <jdk>[1.8,)</jdk>
       </activation>
